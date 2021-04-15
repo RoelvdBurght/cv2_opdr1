@@ -14,7 +14,7 @@ def remove_outliers(matrix, threshold=2):
 	return matrix
 
 def closest_point_brute_force(matrix, target):
-	""" 
+	"""
 		Calculate the points in targer closest to each point in matrix.
 		Uses sp.spatial.distance_matrix() to do the distance calculation.
 		Because of the size of both matrices, and due to the fact that we calculate all
@@ -49,7 +49,7 @@ def calc_rms(matrix, closest_points):
 	return rms
 
 def calc_R_and_t(matrix, closest_points):
-	
+
 	# Compute centroids, weights are set to 1
 	p = np.mean(matrix, axis=0)
 	q = np.mean(closest_points, axis=0)
@@ -64,11 +64,11 @@ def calc_R_and_t(matrix, closest_points):
 
 	Y = y.T
 	print('Y', Y.shape)
-	
+
 	S = X @ Y.T
 	print('S', S.shape)
-	
-	# Compute SVD 
+
+	# Compute SVD
 	U, Sigma, V = np.linalg.svd(S)
 	V = V.T
 
@@ -157,8 +157,3 @@ for i in range(5):
 ############################
 #  Additional Improvements #
 ############################
-
-
-
-
-
