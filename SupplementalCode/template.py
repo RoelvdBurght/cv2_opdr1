@@ -79,7 +79,6 @@ def calc_R_and_t(matrix, closest_points):
 
 	return R.T, t
 
-def calc_metrics():
 
 
 
@@ -129,7 +128,6 @@ for i in range(max_iteration):
 	closest_points = closest_point_brute_force(source, target)
 	new_rms = calc_rms(source, closest_points)
 	print("RMS iter{}: {}".format(i, new_rms))
-	iter_time = 
 	# Break if converged
 	if (new_rms - rms) / rms > convergence:
 		break
