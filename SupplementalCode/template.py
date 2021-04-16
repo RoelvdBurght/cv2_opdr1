@@ -79,6 +79,9 @@ def calc_R_and_t(matrix, closest_points):
 
 	return R.T, t
 
+def calc_metrics():
+
+
 
 ############################
 #   Load Data              #
@@ -93,7 +96,7 @@ pcd_arr = np.asarray(pcd.points)
 target = np.asarray(target.points)
 
 # ***  you need to clean the point cloud using a threshold ***
-pcd_arr_cleaned = remove_outliers(pcd_arr)
+source = remove_outliers(pcd_arr)
 target = remove_outliers(target)
 
 ## visualization from ndarray
@@ -105,18 +108,11 @@ target = remove_outliers(target)
 #     ICP                  #
 ############################
 
-# Initialize R and t
-R = np.identity(3)
-t = 0
-
-# Transform the pointcloud with R & t
-pcd_transformed = pcd_arr_cleaned @ R + t
-
 # Find the closest point for each point in A1 based on A2 using brute-force approach
-closest_points = closest_point_brute_force(pcd_transformed, target)
+closest_points = closest_point_brute_force(source, target)
 
 # Compute RMS
-rms = calc_rms(pcd_transformed, closest_points)
+rms = calc_rms(source, closest_points)
 print("First RMS: {}".format(rms))
 
 # Loop till convergence or max iteration
@@ -124,15 +120,16 @@ max_iteration = 5
 convergence = -0.1
 
 for i in range(max_iteration):
+	t0 = time.time()
 	# Refine R and t using SVD, and transform pointcloud
-	R, t = calc_R_and_t(pcd_transformed, closest_points)
-	pcd_transformed = pcd_transformed @ R + t
+	R, t = calc_R_and_t(source, closest_points)
+	source = source @ R + t
 
 	# Compute new closest points and RMS
-	closest_points = closest_point_brute_force(pcd_transformed, target)
-	new_rms = calc_rms(pcd_transformed, closest_points)
+	closest_points = closest_point_brute_force(source, target)
+	new_rms = calc_rms(source, closest_points)
 	print("RMS iter{}: {}".format(i, new_rms))
-
+	iter_time = 
 	# Break if converged
 	if (new_rms - rms) / rms > convergence:
 		break
