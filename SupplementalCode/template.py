@@ -10,47 +10,47 @@ import matplotlib.pyplot as plt
 ##       notice: You don't need to strictly follow the steps         ##
 ######                                                           ######
 
+######################################
+##        Functions for ICP         ##
+######################################
+
 def remove_outliers(matrix, threshold=2):
+	# Removes outliers, all points further than 2 meters away
 	matrix = matrix[matrix[:, 2] < threshold]
 	return matrix
 
 def closest_point_brute_force(matrix, target):
 	"""
-		Calculate the points in targer closest to each point in matrix.
-		Uses sp.spatial.distance_matrix() to do the distance calculation.
-		Because of the size of both matrices, and due to the fact that we calculate all
-		distances (between all points), the operation is divided into parts.
-		Divide the matrix into submatrices, and calculate the distance between the points
-		in the submatrix and target.
+		Computes the points in target closest to each point in matrix, using
+		sp.spatial.distance_matrix() for the distance computation.
+		The computation is divided into splits, because of the size of both matrices,
+		and due to the fact that we compute the distances between each point combination.
 	"""
+
+	# Initialize variables
 	splits = 100
 	matrix_len = int(len(matrix)/splits)
 	closest_points_indices = np.array([])
-	for i in tqdm(range(splits+1)):
 
+	# Loop through all splits, computing each point-combinations' distance
+	for i in tqdm(range(splits+1)):
 		sub_matrix = matrix[i*matrix_len:(i+1)*matrix_len]
 		dist = sp.spatial.distance_matrix(sub_matrix, target)
 		target_indices = np.argmin(dist, axis=1)
 		closest_points_indices = np.append(closest_points_indices, target_indices)
 
-	# # Final distance calc for the last part of the matrix
-	# sub_matrix = matrix[(i+1)*matrix_len:]
-	# dist = sp.spatial.distance_matrix(sub_matrix, target)
-	# target_indices = np.argmin(dist, axis=1)
-	# closest_points_indices = np.append(closest_points_indices, target_indices)
-
-	# Get the closest points from the indeces and return
+	# Return the closest points from the indices
 	closest_points = target[closest_points_indices.astype(int)]
 	return closest_points
 
 def calc_rms(matrix, closest_points):
+	# Computes the RMS
 	diff = matrix - closest_points
 	summed_powered_diff = np.sum(np.power(diff, 2))
 	rms = np.sqrt(summed_powered_diff/len(matrix))
 	return rms
 
 def calc_R_and_t(matrix, closest_points):
-
 	# Compute centroids, weights are set to 1
 	p = np.mean(matrix, axis=0)
 	q = np.mean(closest_points, axis=0)
@@ -61,13 +61,8 @@ def calc_R_and_t(matrix, closest_points):
 
 	# Compute dxd covariance matrix
 	X = x.T
-	# print('X', X.shape)
-
 	Y = y.T
-	# print('Y', Y.shape)
-
 	S = X @ Y.T
-	# print('S', S.shape)
 
 	# Compute SVD
 	U, Sigma, V = np.linalg.svd(S)
@@ -75,39 +70,33 @@ def calc_R_and_t(matrix, closest_points):
 
 	# Compute R
 	det = np.linalg.det(V @ U.T)
-	joe = np.eye(len(V))
-	joe[len(V)-1, len(V)-1] = det
-	R = V @ joe @ U.T
+	temp = np.eye(len(V))
+	temp[len(V)-1, len(V)-1] = det
+	R = V @ temp @ U.T
 
 	# Compute optimal translation
 	t = q - R @ p
 
 	return R.T, t
 
+
 ############################
 #   Load Data              #
 ############################
-##  example
-data_path = '/Users/thomasmeeus/Documents/UvA/Master 1ste jaar/Computer Vision 2/Assignment 1_CV2_2021/Data/data/'
+##  Load source (pcd) and target image
+data_path = '../Data/data/'
 pcd = o3d.io.read_point_cloud(f"{data_path}0000000000.pcd")
 target = o3d.io.read_point_cloud(f"{data_path}0000000001.pcd")
 
-# ## convert into ndarray
+## convert into ndarray
 pcd_arr = np.asarray(pcd.points)
 target = np.asarray(target.points)
-
-# data_path = '/Users/thomasmeeus/Documents/UvA/Master 1ste jaar/Computer Vision 2/Assignment 1_CV2_2021/Data/'
-# pcd_dict = sp.io.loadmat(f"{data_path}source.mat")
-# pcd_arr = pcd_dict['source'].T
-# target_dict = sp.io.loadmat(f"{data_path}target.mat")
-# target = target_dict['target'].T
-
 
 # ***  you need to clean the point cloud using a threshold ***
 pcd_arr_cleaned = remove_outliers(pcd_arr)
 target = remove_outliers(target)
 
-# visualization from ndarray
+## visualization from ndarray
 # vis_pcd = o3d.geometry.PointCloud()
 # vis_pcd.points = o3d.utility.Vector3dVector(target)
 # o3d.visualization.draw_geometries([vis_pcd])
@@ -116,37 +105,39 @@ target = remove_outliers(target)
 #     ICP                  #
 ############################
 
-###### 0. (adding noise)
-
-###### 1. initialize R= I , t= 0
+# Initialize R and t
 R = np.identity(3)
 t = 0
 
-###### go to 2. unless RMS is unchanged(<= epsilon)
-
-###### 2. using different sampling methods
-
-
-###### 3. transform point cloud with R and t
+# Transform the pointcloud with R & t
 pcd_transformed = pcd_arr_cleaned @ R + t
 
-###### 4. Find the closest point for each point in A1 based on A2 using brute-force approach
+# Find the closest point for each point in A1 based on A2 using brute-force approach
 closest_points = closest_point_brute_force(pcd_transformed, target)
 
-###### 5. Calculate RMS
+# Compute RMS
 rms = calc_rms(pcd_transformed, closest_points)
-print('first', rms)
+print("First RMS: {}".format(rms))
 
-for i in range(5):
+# Loop till convergence or max iteration
+max_iteration = 5
+convergence = -0.1
 
-	###### 6. Refine R and t using SVD
+for i in range(max_iteration):
+	# Refine R and t using SVD, and transform pointcloud
 	R, t = calc_R_and_t(pcd_transformed, closest_points)
 	pcd_transformed = pcd_transformed @ R + t
 
+	# Compute new closest points and RMS
 	closest_points = closest_point_brute_force(pcd_transformed, target)
-	rms = calc_rms(pcd_transformed, closest_points)
-	print(rms)
+	new_rms = calc_rms(pcd_transformed, closest_points)
+	print("RMS iter{}: {}".format(i, new_rms))
 
+	# Break if converged
+	if (new_rms - rms) / rms > convergence:
+		break
+
+	rms = new_rms
 
 ############################
 #   Merge Scene            #
